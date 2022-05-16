@@ -30,8 +30,8 @@ def generate_launch_description():
     assert os.path.exists(sdf), "Model.sdf doesnt exist in "+ str(sdf)
 
     # Names and poses of the robots
-    robots = gen_robot_list(5)
-
+    robots = gen_robot_list(2)
+    
     # We create the list of spawn robots commands
     spawn_robots_cmds = []
     for robot in robots:
