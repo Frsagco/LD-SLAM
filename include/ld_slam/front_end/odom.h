@@ -9,62 +9,65 @@
 
 #include "dlo.h"
 
-class dlo::OdomNode {
+class dlo::OdomNode : public rlcpp::Node {
 
 public:
 
-  OdomNode(ros::NodeHandle node_handle);
-  ~OdomNode();
+  OdomNode(); // converted
+  ~OdomNode(); // converted
 
   static void abort() {
     abort_ = true;
   }
 
-  void start();
-  void stop();
+  void start(); // converted
+  void stop(); // converted
 
 private:
 
-  void abortTimerCB(const ros::TimerEvent& e);
-  void icpCB(const sensor_msgs::PointCloud2ConstPtr& pc);
-  void imuCB(const sensor_msgs::Imu::ConstPtr& imu);
+  /* -------------------------------- ROS2 CHANGED ---------------------------------------------------------------------------------------- */
+ // void abortTimerCB(const ros::TimerEvent& e);
+  void icpCB(const sensor_msgs::msg::PointCloud2::ConstPtr& pc);
+  void imuCB(const sensor_msgs::msg::Imu::ConstPtr& imu);
+  /* -------------------------------------------------------------------------------------------------------------------------------------- */
 
-  void getParams();
+  void getParams(); // converted
 
-  void publishToROS();
-  void publishPose();
-  void publishTransform();
-  void publishKeyframe();
+  void publishToROS(); // converted
+  void publishPose(); // converted
+  void publishTransform(); // converted
+  void publishKeyframe(); // converted
 
-  void preprocessPoints();
-  void initializeInputTarget();
-  void setInputSources();
+  void preprocessPoints(); // converted
+  void initializeInputTarget(); // converted
+  void setInputSources(); // converted
 
-  void initializeDLO();
-  void gravityAlign();
+  void initializeDLO(); // converted
+  void gravityAlign(); // converted
 
-  void getNextPose();
-  void integrateIMU();
+  void getNextPose(); // converted
+  void integrateIMU(); // converted
 
-  void propagateS2S(Eigen::Matrix4f T);
-  void propagateS2M();
+  void propagateS2S(Eigen::Matrix4f T); // converted
+  void propagateS2M(); // converted
 
-  void setAdaptiveParams();
+  void setAdaptiveParams(); // converted
 
-  void computeMetrics();
-  void computeSpaciousness();
+  void computeMetrics(); // converted
+  void computeSpaciousness(); // converted
 
-  void transformCurrentScan();
-  void updateKeyframes();
-  void computeConvexHull();
-  void computeConcaveHull();
-  void pushSubmapIndices(std::vector<float> dists, int k, std::vector<int> frames);
-  void getSubmapKeyframes();
+  void transformCurrentScan(); // converted
+  void updateKeyframes(); // converted
+  void computeConvexHull(); // converted
+  void computeConcaveHull(); // converted
+  void pushSubmapIndices(std::vector<float> dists, int k, std::vector<int> frames); // converted
+  void getSubmapKeyframes(); // converted
 
-  void debug();
+  void debug(); // converted
 
   double first_imu_time;
 
+/* -------------------------------- ROS2 CHANGED --------------------------------------------------------------------------*/
   rclcpp::Node nh;
   rclcpp::TimerBase abort_timer;
 
@@ -73,8 +76,9 @@ private:
 
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2> keyframe_pub;
-  rclcpp::Publisher kf_pub;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr keyframe_pub;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr kf_pub;
+  /* -------------------------------------------------------------------------------------------------------------------- */
 
   Eigen::Vector3f origin;
   std::vector<std::pair<Eigen::Vector3f, Eigen::Quaternionf>> trajectory;
@@ -110,7 +114,10 @@ private:
   pcl::PointCloud<PointType>::Ptr source_cloud;
   pcl::PointCloud<PointType>::Ptr target_cloud;
 
-  ros::Time scan_stamp;
+/* -------------------------------- ROS2 CHANGED --------------------------------------------------------------------------*/
+  rclcpp::Time scan_stamp;
+/* -------------------------------------------------------------------------------------------------------------------- */
+
 
   double curr_frame_stamp;
   double prev_frame_stamp;
@@ -123,10 +130,13 @@ private:
   pcl::VoxelGrid<PointType> vf_scan;
   pcl::VoxelGrid<PointType> vf_submap;
 
-  nav_msgs::Odometry odom;
-  nav_msgs::Odometry kf;
 
-  geometry_msgs::PoseStamped pose_ros;
+/* -------------------------------------------------------------------------------------------------------------------------- */
+  nav_msgs::msg::Odometry odom;
+  nav_msgs::msg::Odometry kf;
+  geometry_msgs::msg::PoseStamped pose_ros;
+/* -------------------------------------------------------------------------------------------------------------------------- */
+
 
   Eigen::Matrix4f T;
   Eigen::Matrix4f T_s2s, T_s2s_prev;
