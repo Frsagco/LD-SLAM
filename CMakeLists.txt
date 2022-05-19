@@ -97,7 +97,7 @@ target_compile_options(dlo_odom_node PRIVATE ${OpenMP_FLAGS})
 target_link_libraries(dlo_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
 
 # arrivato qua
-
+# prova 1
 
 install(
   DIRECTORY
