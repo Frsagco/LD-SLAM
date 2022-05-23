@@ -24,7 +24,6 @@ find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
-
 # Skip if Gazebo not present
 find_package(gazebo QUIET)
 if(NOT gazebo_FOUND)

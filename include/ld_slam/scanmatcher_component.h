@@ -101,6 +101,10 @@ namespace ldslam
         const geometry_msgs::msg::PoseStamped corrent_pose_stamped
       );
 
+      void cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
+      void initial_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+      void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
+
       bool initial_pose_received_ {false};
       bool initial_cloud_received_ {false};
 
@@ -114,6 +118,10 @@ namespace ldslam
       double scan_max_range_ {100.0};
       double map_publish_period_;
       int num_targeted_cloud_;
+
+      double ndt_resolution;
+      int ndt_num_threads;
+      double gicp_corr_dist_threshold;
 
       bool set_initial_pose_ {false};
       bool use_odom_ {false};
