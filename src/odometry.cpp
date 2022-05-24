@@ -1,4 +1,4 @@
-#include "ld_slam/scanmatcher_component.h"
+#include "ld_slam/odometry.h"
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -7,7 +7,7 @@ namespace ldslam
 {
 
 /* ------------------   Constructor  ------------------------------------------- */  
-ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
+Odometry::Odometry(const rclcpp::NodeOptions & options)
 : Node("scan_matcher", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
@@ -57,7 +57,7 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(get_logger(), "initialization end");
 }
 
-void ScanMatcherComponent::setParams()
+void Odometry::setParams()
 {
   this->declare_parameter("global_frame_id", "map");
   this->get_parameter("global_frame_id", global_frame_id_);
@@ -146,22 +146,22 @@ void ScanMatcherComponent::setParams()
   lidar_undistortion_.setScanPeriod(scan_period_);
 }
 
-void ScanMatcherComponent::initializePubSub()
+void Odometry::initializePubSub()
 {
   RCLCPP_INFO(get_logger(), "initialize Publishers and Subscribers");
 
   // sub
   initial_pose_sub_ =
     create_subscription<geometry_msgs::msg::PoseStamped>(
-    "initial_pose", rclcpp::QoS(10), std::bind(&ScanMatcherComponent::initial_pose_callback, this, std::placeholders::_1));
+    "initial_pose", rclcpp::QoS(10), std::bind(&Odometry::initial_pose_callback, this, std::placeholders::_1));
 
   imu_sub_ =
     create_subscription<sensor_msgs::msg::Imu>(
-    "imu", rclcpp::SensorDataQoS(), std::bind(&ScanMatcherComponent::imu_callback, this, std::placeholders::_1));
+    "imu", rclcpp::SensorDataQoS(), std::bind(&Odometry::imu_callback, this, std::placeholders::_1));
 
   input_cloud_sub_ =
     create_subscription<sensor_msgs::msg::PointCloud2>(
-    "input_cloud", rclcpp::SensorDataQoS(), std::bind(&ScanMatcherComponent::cloud_callback, this, std::placeholders::_1));
+    "input_cloud", rclcpp::SensorDataQoS(), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
 
   // pub
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -176,14 +176,14 @@ void ScanMatcherComponent::initializePubSub()
   path_pub_ = create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
 }
 
-void ScanMatcherComponent::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
+void Odometry::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   if (initial_pose_received_) {
     receiveImu(*msg);
   }
 }
 
-void ScanMatcherComponent::initial_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+void Odometry::initial_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
   if (msg->header.frame_id != global_frame_id_) {
       RCLCPP_WARN(get_logger(), "This initial_pose is not in the global frame");
@@ -200,7 +200,7 @@ void ScanMatcherComponent::initial_pose_callback(const geometry_msgs::msg::PoseS
     pose_pub_->publish(corrent_pose_stamped_);
 }
 
-void ScanMatcherComponent::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
 {
   if (initial_pose_received_) {
     sensor_msgs::msg::PointCloud2 transformed_msg;
@@ -279,7 +279,7 @@ void ScanMatcherComponent::cloud_callback(const sensor_msgs::msg::PointCloud2::S
   }
 }
 
-void ScanMatcherComponent::receiveCloud(
+void Odometry::receiveCloud(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
   const rclcpp::Time stamp)
 {
@@ -372,7 +372,7 @@ void ScanMatcherComponent::receiveCloud(
   std::cout << "---------------------------------------------------------" << std::endl;
 }
 
-void ScanMatcherComponent::publishMapAndPose(
+void Odometry::publishMapAndPose(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
   const Eigen::Matrix4f final_transformation, const rclcpp::Time stamp)
 {
@@ -411,7 +411,7 @@ void ScanMatcherComponent::publishMapAndPose(
     mapping_task_ =
       std::packaged_task<void()>(
       std::bind(
-        &ScanMatcherComponent::updateMap, this, cloud_ptr,
+        &Odometry::updateMap, this, cloud_ptr,
         final_transformation, corrent_pose_stamped));
     mapping_future_ = mapping_task_.get_future();
     mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
@@ -419,7 +419,7 @@ void ScanMatcherComponent::publishMapAndPose(
   }
 }
 
-void ScanMatcherComponent::updateMap(
+void Odometry::updateMap(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
   const geometry_msgs::msg::PoseStamped corrent_pose_stamped)
@@ -474,7 +474,7 @@ void ScanMatcherComponent::updateMap(
   }
 }
 
-Eigen::Matrix4f ScanMatcherComponent::getTransformation(const geometry_msgs::msg::Pose pose)
+Eigen::Matrix4f Odometry::getTransformation(const geometry_msgs::msg::Pose pose)
 {
   Eigen::Affine3d affine;
   tf2::fromMsg(pose, affine);
@@ -482,7 +482,7 @@ Eigen::Matrix4f ScanMatcherComponent::getTransformation(const geometry_msgs::msg
   return sim_trans;
 }
 
-void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
+void Odometry::receiveImu(const sensor_msgs::msg::Imu msg)
 {
   if (!use_imu_) {return;}
 
@@ -510,7 +510,7 @@ void ScanMatcherComponent::receiveImu(const sensor_msgs::msg::Imu msg)
 
 }
 
-void ScanMatcherComponent::publishMap()
+void Odometry::publishMap()
 {
   RCLCPP_INFO(get_logger(), "publish a map");
 
@@ -540,4 +540,4 @@ void ScanMatcherComponent::publishMap()
 }
 
 #include <rclcpp_components/register_node_macro.hpp>
-RCLCPP_COMPONENTS_REGISTER_NODE(ldslam::ScanMatcherComponent)
+RCLCPP_COMPONENTS_REGISTER_NODE(ldslam::Odometry)

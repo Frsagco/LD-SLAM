@@ -57,13 +57,13 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-add_library(scanmatcher_component SHARED
-src/scanmatcher_component.cpp
+add_library(odometry SHARED
+src/odometry.cpp
 )
 
-target_compile_definitions(scanmatcher_component PRIVATE "COMPOSITION_DLL")
+target_compile_definitions(odometry PRIVATE "COMPOSITION_DLL")
 
-ament_target_dependencies(scanmatcher_component
+ament_target_dependencies(odometry
   rclcpp 
   rclcpp_components 
   tf2_ros 
@@ -77,14 +77,14 @@ ament_target_dependencies(scanmatcher_component
   ld_slam_msg
 )
 
-add_executable(scanmatcher_node
-src/scanmatcher_node.cpp
+add_executable(odometry_node
+src/odometry_node.cpp
 )
 
-target_link_libraries(scanmatcher_node
-scanmatcher_component ${PCL_LIBRARIES})
+target_link_libraries(odometry_node
+odometry ${PCL_LIBRARIES})
 
-ament_target_dependencies(scanmatcher_node
+ament_target_dependencies(odometry_node
   rclcpp)
 
 include_directories(
@@ -96,10 +96,10 @@ link_directories(
 )
 add_definitions(${PCL_DEFINITIONS})
 
-rclcpp_components_register_nodes(scanmatcher_component 
-  "ldslam::ScanMatcherComponent")
+rclcpp_components_register_nodes(odometry 
+  "ldslam::Odometry")
 
-ament_export_libraries(scanmatcher_component)
+ament_export_libraries(odometry)
 
 install(
   DIRECTORY "include/"
@@ -121,14 +121,14 @@ install(
 )
 
 install(TARGETS
-  scanmatcher_component
+  odometry
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
 install(TARGETS 
-  scanmatcher_node
+  odometry_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

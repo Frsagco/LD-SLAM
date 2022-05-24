@@ -1,5 +1,5 @@
-#ifndef SCANMATCHER_COMPONENT_HPP_
-#define SCANMATCHER_COMPONENT_HPP_
+#ifndef ODOMETRY_HPP_
+#define ODOMETRY_HPP_
 
 #include "visibility.h"
 #include <rclcpp/rclcpp.hpp>
@@ -37,11 +37,11 @@
 
 namespace ldslam
 {
-  class ScanMatcherComponent: public rclcpp::Node
+  class Odometry: public rclcpp::Node
   {
   public:
       COMPOSITION_PUBLIC
-      explicit ScanMatcherComponent(const rclcpp::NodeOptions & options);
+      explicit Odometry(const rclcpp::NodeOptions & options);
 
   private:
       rclcpp::Clock clock_;
@@ -152,4 +152,4 @@ namespace ldslam
   };
 }
 
-#endif  // SCANMATCHER_COMPONENT_HPP_
+#endif  // ODOMETRY_HPP_
