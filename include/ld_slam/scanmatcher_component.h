@@ -19,7 +19,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
 
-#include <ld_slam/msg/map_array.hpp>
+#include <ld_slam_msg/msg/map_array.hpp>
 #include "lidar_undistortion.hpp"
 
 #include <pclomp/ndt_omp.h>
@@ -69,11 +69,11 @@ namespace ldslam
       std::future < void > mapping_future_;
 
       geometry_msgs::msg::PoseStamped corrent_pose_stamped_;
-      ld_slam::msg::MapArray map_array_msg_;
+      ld_slam_msg::msg::MapArray map_array_msg_;
       nav_msgs::msg::Path path_;
       rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
       rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;
-      rclcpp::Publisher<ld_slam::msg::MapArray>::SharedPtr map_array_pub_;
+      rclcpp::Publisher<ld_slam_msg::msg::MapArray>::SharedPtr map_array_pub_;
       rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
       void setParams();

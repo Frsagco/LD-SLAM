@@ -5,43 +5,17 @@ using namespace std::chrono_literals;
 
 namespace ldslam
 {
-  
+
+/* ------------------   Constructor  ------------------------------------------- */  
 ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
 : Node("scan_matcher", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
   listener_(tfbuffer_),
   broadcaster_(this)
+/* ----------------------------------------------------------------------------- */  
 {
   setParams();
-  
-  if (registration_method_ == "NDT") {
-
-    pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
-    ndt->setResolution(ndt_resolution);
-    ndt->setTransformationEpsilon(0.01);
-    // ndt_omp
-    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
-    if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
-
-    registration_ = ndt;
-
-  } else {
-    pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>::Ptr
-      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
-    gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
-    gicp->setTransformationEpsilon(1e-8);
-    registration_ = gicp;
-  }
-
-  map_array_msg_.header.frame_id = global_frame_id_;
-  map_array_msg_.cloud_coordinate = map_array_msg_.LOCAL;
-
-  path_.header.frame_id = global_frame_id_;
-
-  lidar_undistortion_.setScanPeriod(scan_period_);
-
   initializePubSub();
 
   if (set_initial_pose_) {
@@ -62,6 +36,24 @@ ScanMatcherComponent::ScanMatcherComponent(const rclcpp::NodeOptions & options)
     path_.poses.push_back(*msg);
   }
 
+  std::cout << "registration_method:" << registration_method_ << std::endl;
+  std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
+  std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
+  std::cout << "gicp_corr_dist_threshold[m]:" << gicp_corr_dist_threshold << std::endl;
+  std::cout << "trans_for_mapupdate[m]:" << trans_for_mapupdate_ << std::endl;
+  std::cout << "vg_size_for_input[m]:" << vg_size_for_input_ << std::endl;
+  std::cout << "vg_size_for_map[m]:" << vg_size_for_map_ << std::endl;
+  std::cout << "use_min_max_filter:" << std::boolalpha << use_min_max_filter_ << std::endl;
+  std::cout << "scan_min_range[m]:" << scan_min_range_ << std::endl;
+  std::cout << "scan_max_range[m]:" << scan_max_range_ << std::endl;
+  std::cout << "set_initial_pose:" << std::boolalpha << set_initial_pose_ << std::endl;
+  std::cout << "use_odom:" << std::boolalpha << use_odom_ << std::endl;
+  std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
+  std::cout << "scan_period[sec]:" << scan_period_ << std::endl;
+  std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
+  std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
+  std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
+  std::cout << "------------------" << std::endl;
   RCLCPP_INFO(get_logger(), "initialization end");
 }
 
@@ -128,25 +120,30 @@ void ScanMatcherComponent::setParams()
   this->get_parameter("use_imu", use_imu_);
   this->declare_parameter("debug_flag", false);
   this->get_parameter("debug_flag", debug_flag_);
+  
+  if (registration_method_ == "NDT") {
+    pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>::Ptr
+      ndt(new pclomp::NormalDistributionsTransform<pcl::PointXYZI, pcl::PointXYZI>());
+    ndt->setResolution(ndt_resolution);
+    ndt->setTransformationEpsilon(0.01);
+    // ndt_omp
+    ndt->setNeighborhoodSearchMethod(pclomp::DIRECT7);
+    if (ndt_num_threads > 0) {ndt->setNumThreads(ndt_num_threads);}
 
-  std::cout << "registration_method:" << registration_method_ << std::endl;
-  std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
-  std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
-  std::cout << "gicp_corr_dist_threshold[m]:" << gicp_corr_dist_threshold << std::endl;
-  std::cout << "trans_for_mapupdate[m]:" << trans_for_mapupdate_ << std::endl;
-  std::cout << "vg_size_for_input[m]:" << vg_size_for_input_ << std::endl;
-  std::cout << "vg_size_for_map[m]:" << vg_size_for_map_ << std::endl;
-  std::cout << "use_min_max_filter:" << std::boolalpha << use_min_max_filter_ << std::endl;
-  std::cout << "scan_min_range[m]:" << scan_min_range_ << std::endl;
-  std::cout << "scan_max_range[m]:" << scan_max_range_ << std::endl;
-  std::cout << "set_initial_pose:" << std::boolalpha << set_initial_pose_ << std::endl;
-  std::cout << "use_odom:" << std::boolalpha << use_odom_ << std::endl;
-  std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
-  std::cout << "scan_period[sec]:" << scan_period_ << std::endl;
-  std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
-  std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
-  std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
-  std::cout << "------------------" << std::endl;
+    registration_ = ndt;
+  } else {
+    pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>::Ptr
+      gicp(new pclomp::GeneralizedIterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
+    gicp->setMaxCorrespondenceDistance(gicp_corr_dist_threshold);
+    gicp->setTransformationEpsilon(1e-8);
+    registration_ = gicp;
+  }
+
+  map_array_msg_.header.frame_id = global_frame_id_;
+  map_array_msg_.cloud_coordinate = map_array_msg_.LOCAL;
+  path_.header.frame_id = global_frame_id_;
+
+  lidar_undistortion_.setScanPeriod(scan_period_);
 }
 
 void ScanMatcherComponent::initializePubSub()
@@ -156,11 +153,11 @@ void ScanMatcherComponent::initializePubSub()
   // sub
   initial_pose_sub_ =
     create_subscription<geometry_msgs::msg::PoseStamped>(
-    "initial_pose", rclcpp::QoS(10), std::bind(&ScanMatcherComponent::initial_pose_callback, this, std::placeholders::_1);
+    "initial_pose", rclcpp::QoS(10), std::bind(&ScanMatcherComponent::initial_pose_callback, this, std::placeholders::_1));
 
   imu_sub_ =
     create_subscription<sensor_msgs::msg::Imu>(
-    "imu", rclcpp::SensorDataQoS(), std::bind(&ScanMatcherComponent::imu_callback, this, std::placeholders::_1);
+    "imu", rclcpp::SensorDataQoS(), std::bind(&ScanMatcherComponent::imu_callback, this, std::placeholders::_1));
 
   input_cloud_sub_ =
     create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -172,7 +169,7 @@ void ScanMatcherComponent::initializePubSub()
     rclcpp::QoS(10));
   map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("map", rclcpp::QoS(10));
   map_array_pub_ =
-    create_publisher<lidarslam_msgs::msg::MapArray>(
+    create_publisher<ld_slam_msg::msg::MapArray>(
     "map_array", rclcpp::QoS(
       rclcpp::KeepLast(
         1)).reliable());
@@ -262,7 +259,7 @@ void ScanMatcherComponent::cloud_callback(const sensor_msgs::msg::PointCloud2::S
       sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg_ptr(
         new sensor_msgs::msg::PointCloud2);
       pcl::toROSMsg(*cloud_ptr, *cloud_msg_ptr);
-      lidarslam_msgs::msg::SubMap submap;
+      ld_slam_msg::msg::SubMap submap;
       submap.header = msg->header;
       submap.distance = 0;
       submap.pose = corrent_pose_stamped_.pose;
@@ -455,7 +452,7 @@ void ScanMatcherComponent::updateMap(
     new sensor_msgs::msg::PointCloud2);
   pcl::toROSMsg(*filtered_cloud_ptr, *cloud_msg_ptr);
 
-  ld_slam::msg::SubMap submap;
+  ld_slam_msg::msg::SubMap submap;
   submap.header.frame_id = global_frame_id_;
   submap.header.stamp = corrent_pose_stamped.header.stamp;
   latest_distance_ += trans_;

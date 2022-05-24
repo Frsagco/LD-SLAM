@@ -22,7 +22,22 @@ find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_sensor_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(ndt_omp_ros2 REQUIRED)
+find_package(ld_slam_msg REQUIRED)
+find_package(PCL REQUIRED)
+find_package(OpenMP)
+
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
 
 # Skip if Gazebo not present
 find_package(gazebo QUIET)
@@ -42,11 +57,54 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/SubMap.msg"
-  "msg/MapArray.msg"
+add_library(scanmatcher_component SHARED
+src/scanmatcher_component.cpp
 )
 
+target_compile_definitions(scanmatcher_component PRIVATE "COMPOSITION_DLL")
+
+ament_target_dependencies(scanmatcher_component
+  rclcpp 
+  rclcpp_components 
+  tf2_ros 
+  tf2_geometry_msgs 
+  tf2_sensor_msgs 
+  tf2_eigen 
+  geometry_msgs 
+  sensor_msgs
+  nav_msgs
+  ndt_omp_ros2
+  ld_slam_msg
+)
+
+add_executable(scanmatcher_node
+src/scanmatcher_node.cpp
+)
+
+target_link_libraries(scanmatcher_node
+scanmatcher_component ${PCL_LIBRARIES})
+
+ament_target_dependencies(scanmatcher_node
+  rclcpp)
+
+include_directories(
+    include
+    ${PCL_INCLUDE_DIRS}
+)
+link_directories(
+  ${PCL_LIBRARY_DIRS}
+)
+add_definitions(${PCL_DEFINITIONS})
+
+rclcpp_components_register_nodes(scanmatcher_component 
+  "ldslam::ScanMatcherComponent")
+
+ament_export_libraries(scanmatcher_component)
+
+install(
+  DIRECTORY "include/"
+  DESTINATION include
+)
 
 install(
   DIRECTORY
@@ -59,6 +117,18 @@ install(
 install(
   PROGRAMS
   launch/spawn_turtlebot.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+  scanmatcher_component
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(TARGETS 
+  scanmatcher_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
