@@ -1,7 +1,7 @@
 # LD-SLAM
 Work in progress...
 
-Computer Science Master Thesis on Politecnico di Torino, in collaboration with LINKS Foundation. 
+Computer Science Master Thesis at Politecnico di Torino, in collaboration with LINKS Foundation. 
 
 ROS2 based Collaborative SLAM, using LIDAR scan as sensor. 
 
