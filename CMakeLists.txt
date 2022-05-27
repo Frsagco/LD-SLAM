@@ -33,6 +33,8 @@ find_package(ndt_omp_ros2 REQUIRED)
 find_package(ld_slam_msg REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenMP)
+find_package(laser_geometry REQUIRED)
+
 
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -75,6 +77,7 @@ ament_target_dependencies(odometry
   nav_msgs
   ndt_omp_ros2
   ld_slam_msg
+  laser_geometry
 )
 
 add_executable(odometry_node

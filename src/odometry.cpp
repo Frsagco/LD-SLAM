@@ -8,7 +8,7 @@ namespace ldslam
 
 /* ------------------   Constructor  ------------------------------------------- */  
 Odometry::Odometry(const rclcpp::NodeOptions & options)
-: Node("scan_matcher", options),
+: Node("odometry", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
   listener_(tfbuffer_),
@@ -36,6 +36,7 @@ Odometry::Odometry(const rclcpp::NodeOptions & options)
     path_.poses.push_back(*msg);
   }
 
+/*  STAMPE PARAMETRI UTILI 
   std::cout << "registration_method:" << registration_method_ << std::endl;
   std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
   std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
@@ -54,6 +55,7 @@ Odometry::Odometry(const rclcpp::NodeOptions & options)
   std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
   std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
   std::cout << "------------------" << std::endl;
+*/
   RCLCPP_INFO(get_logger(), "initialization end");
 }
 
@@ -152,28 +154,53 @@ void Odometry::initializePubSub()
 
   // sub
   initial_pose_sub_ =
-    create_subscription<geometry_msgs::msg::PoseStamped>(
+    this->create_subscription<geometry_msgs::msg::PoseStamped>(
     "initial_pose", rclcpp::QoS(10), std::bind(&Odometry::initial_pose_callback, this, std::placeholders::_1));
-
   imu_sub_ =
-    create_subscription<sensor_msgs::msg::Imu>(
+    this->create_subscription<sensor_msgs::msg::Imu>(
     "imu", rclcpp::SensorDataQoS(), std::bind(&Odometry::imu_callback, this, std::placeholders::_1));
-
   input_cloud_sub_ =
-    create_subscription<sensor_msgs::msg::PointCloud2>(
+    this->create_subscription<sensor_msgs::msg::PointCloud2>(
     "input_cloud", rclcpp::SensorDataQoS(), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
+  RCLCPP_INFO(get_logger(), "C");
+  input_laser_scan_sub_=
+    this->create_subscription<sensor_msgs::msg::LaserScan>(
+      "scan", rclcpp::SensorDataQoS(), std::bind(&Odometry::laser_scan_callback, this, std::placeholders::_1)
+    );
 
   // pub
-  pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
+  cloud_pub_= this->create_publisher<sensor_msgs::msg::PointCloud2>(
+    "input_cloud",     
+    rclcpp::QoS(10)
+  );
+  pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
     "current_pose",
     rclcpp::QoS(10));
-  map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("map", rclcpp::QoS(10));
-  map_array_pub_ =
-    create_publisher<ld_slam_msg::msg::MapArray>(
+  map_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("map", rclcpp::QoS(10));
+  RCLCPP_INFO(get_logger(), "G");
+
+/*   map_array_pub_ =
+    this->create_publisher<ld_slam_msg::msg::MapArray>(
     "map_array", rclcpp::QoS(
       rclcpp::KeepLast(
-        1)).reliable());
-  path_pub_ = create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
+        1)).reliable()); */
+  path_pub_ = this->create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
+
+  RCLCPP_INFO(get_logger(), "Publishers and Subscribers configurated.");
+}
+
+void Odometry::laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+{
+ /* TO-DO: Devo costruire struttura in cui gestire queste LaserScan, ovvero trovare un modo per renderle suitable in futuro */
+ 
+
+ /* Preparing laser scans for scan-to-scan matching in order to obtain odometry 
+    Scan-to-scan matching is implemented manipulating PointCloud2. Here is done a conversion using laser_geometry pkg       */
+
+  auto cloud_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
+
+  this->projector_.projectLaser(*msg, *cloud_msg);  
+  this->cloud_pub_->publish(std::move(cloud_msg));
 }
 
 void Odometry::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -376,7 +403,6 @@ void Odometry::publishMapAndPose(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
   const Eigen::Matrix4f final_transformation, const rclcpp::Time stamp)
 {
-
   Eigen::Vector3d position = final_transformation.block<3, 1>(0, 3).cast<double>();
 
   Eigen::Matrix3d rot_mat = final_transformation.block<3, 3>(0, 0).cast<double>();

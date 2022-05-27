@@ -13,6 +13,7 @@
 
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform.hpp>
@@ -28,6 +29,8 @@
 #include <pclomp/voxel_grid_covariance_omp_impl.hpp>
 #include <pclomp/gicp_omp.h>
 #include <pclomp/gicp_omp_impl.hpp>
+
+#include "laser_geometry/laser_geometry.hpp"
 
 #include <mutex>
 #include <thread>
@@ -55,10 +58,6 @@ namespace ldslam
 
       pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration_;
 
-      rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr initial_pose_sub_;
-      rclcpp::Subscription< sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
-      rclcpp::Subscription< sensor_msgs::msg::PointCloud2>::SharedPtr input_cloud_sub_;
-
       std::mutex mtx_;
       pcl::PointCloud < pcl::PointXYZI > targeted_cloud_;
       rclcpp::Time last_map_time_;
@@ -71,10 +70,20 @@ namespace ldslam
       geometry_msgs::msg::PoseStamped corrent_pose_stamped_;
       ld_slam_msg::msg::MapArray map_array_msg_;
       nav_msgs::msg::Path path_;
+
+      rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr initial_pose_sub_;
+      rclcpp::Subscription< sensor_msgs::msg::Imu>::SharedPtr imu_sub_;
+      rclcpp::Subscription< sensor_msgs::msg::LaserScan>::SharedPtr input_laser_scan_sub_;
+      rclcpp::Subscription< sensor_msgs::msg::PointCloud2>::SharedPtr input_cloud_sub_;
+      
       rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
+      rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_pub_;
       rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;
       rclcpp::Publisher<ld_slam_msg::msg::MapArray>::SharedPtr map_array_pub_;
       rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+
+
+      laser_geometry::LaserProjection projector_;
 
       void setParams();
       void initializePubSub();
@@ -104,6 +113,7 @@ namespace ldslam
       void cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
       void initial_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
       void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
+      void laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
 
       bool initial_pose_received_ {false};
       bool initial_cloud_received_ {false};

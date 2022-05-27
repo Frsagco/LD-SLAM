@@ -27,7 +27,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
           'world',
-          default_value=[os.path.join(pkg_ldslam, 'worlds', 'empty.world'), ''],
+          default_value=[os.path.join('/usr/share/gazebo-11', 'worlds', 'cafe_no_actor.world'), ''],
           description='SDF world file'),
         gazebo
     ])
