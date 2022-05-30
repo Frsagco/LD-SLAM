@@ -8,6 +8,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, TextSubstitution
+from launch_ros.actions import Node
 
 
 
@@ -34,6 +35,7 @@ def generate_launch_description():
 
     # We create the list of spawn robots commands
     spawn_robots_cmds = []
+    odometry_node_cmds = []
     for robot in robots:
         spawn_robots_cmds.append(
             IncludeLaunchDescription(
@@ -47,11 +49,26 @@ def generate_launch_description():
                                   'robot_name': robot['name'],
                                   'robot_namespace': robot['name']
                                   }.items()))
+        
+        odometry_node_cmds.append(
+            Node(
+            package='ld_slam',
+            namespace=robot['name'],
+            executable='odometry_node',
+            output='screen',
+            arguments=[
+                '--robot_name', robot['name']]
+            )
+        )
+        
 
     # Create the launch description and populate
     ld = LaunchDescription()
     
     for spawn_robot_cmd in spawn_robots_cmds:
         ld.add_action(spawn_robot_cmd)
+
+    for odometry_node in odometry_node_cmds:
+        ld.add_action(odometry_node)
 
     return ld

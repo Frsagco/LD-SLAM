@@ -18,6 +18,7 @@ Odometry::Odometry(const rclcpp::NodeOptions & options)
   setParams();
   initializePubSub();
 
+
   if (set_initial_pose_) {
     auto msg = std::make_shared<geometry_msgs::msg::PoseStamped>();
     msg->header.stamp = now();
@@ -61,6 +62,8 @@ Odometry::Odometry(const rclcpp::NodeOptions & options)
 
 void Odometry::setParams()
 {
+  this->declare_parameter("robot_name", "robot0");
+  this->get_parameter("robot_name", robot_name_);
   this->declare_parameter("global_frame_id", "map");
   this->get_parameter("global_frame_id", global_frame_id_);
   this->declare_parameter("robot_frame_id", "base_link");
@@ -151,40 +154,45 @@ void Odometry::setParams()
 void Odometry::initializePubSub()
 {
   RCLCPP_INFO(get_logger(), "initialize Publishers and Subscribers");
+  std::string initial_pose=this->robot_name_ + "/initial_pose";
+  std::string imu=this->robot_name_ + "/imu";
+  std::string input_cloud=this->robot_name_ + "/input_cloud";
+  std::string scan=this->robot_name_ + "/scan";
+  std::string current_pose=this->robot_name_+ "/current_pose";
+  std::string map=this->robot_name_ + "/map";
+  std::string path=this->robot_name_ + "/path";
 
   // sub
   initial_pose_sub_ =
     this->create_subscription<geometry_msgs::msg::PoseStamped>(
-    "initial_pose", rclcpp::QoS(10), std::bind(&Odometry::initial_pose_callback, this, std::placeholders::_1));
+    initial_pose, rclcpp::QoS(10), std::bind(&Odometry::initial_pose_callback, this, std::placeholders::_1));
   imu_sub_ =
     this->create_subscription<sensor_msgs::msg::Imu>(
-    "imu", rclcpp::SensorDataQoS(), std::bind(&Odometry::imu_callback, this, std::placeholders::_1));
+    imu, rclcpp::SensorDataQoS(), std::bind(&Odometry::imu_callback, this, std::placeholders::_1));
   input_cloud_sub_ =
     this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    "input_cloud", rclcpp::SensorDataQoS(), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
-  RCLCPP_INFO(get_logger(), "C");
+    input_cloud, rclcpp::SensorDataQoS(), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
   input_laser_scan_sub_=
     this->create_subscription<sensor_msgs::msg::LaserScan>(
-      "scan", rclcpp::SensorDataQoS(), std::bind(&Odometry::laser_scan_callback, this, std::placeholders::_1)
+      scan, rclcpp::SensorDataQoS(), std::bind(&Odometry::laser_scan_callback, this, std::placeholders::_1)
     );
 
   // pub
   cloud_pub_= this->create_publisher<sensor_msgs::msg::PointCloud2>(
-    "input_cloud",     
+    input_cloud,     
     rclcpp::QoS(10)
   );
   pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-    "current_pose",
+    current_pose,
     rclcpp::QoS(10));
-  map_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("map", rclcpp::QoS(10));
-  RCLCPP_INFO(get_logger(), "G");
+  map_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(map, rclcpp::QoS(10));
 
 /*   map_array_pub_ =
     this->create_publisher<ld_slam_msg::msg::MapArray>(
     "map_array", rclcpp::QoS(
       rclcpp::KeepLast(
         1)).reliable()); */
-  path_pub_ = this->create_publisher<nav_msgs::msg::Path>("path", rclcpp::QoS(10));
+  path_pub_ = this->create_publisher<nav_msgs::msg::Path>(path, rclcpp::QoS(10));
 
   RCLCPP_INFO(get_logger(), "Publishers and Subscribers configurated.");
 }

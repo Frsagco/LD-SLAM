@@ -35,6 +35,7 @@
 #include <mutex>
 #include <thread>
 #include <future>
+#include <cstdlib>
 
 #include <pcl_conversions/pcl_conversions.h>
 
@@ -47,6 +48,8 @@ namespace ldslam
       explicit Odometry(const rclcpp::NodeOptions & options);
 
   private:
+      std::string robot_name_;
+
       rclcpp::Clock clock_;
       tf2_ros::Buffer tfbuffer_;
       tf2_ros::TransformListener listener_;
