@@ -6,61 +6,29 @@ using namespace std::chrono_literals;
 namespace ldslam
 {
 
-/* ------------------   Constructor  ------------------------------------------- */  
+/* ************************************  CONSTRUCTOR  ************************************************ */
 Odometry::Odometry(const rclcpp::NodeOptions & options)
 : Node("odometry", options),
   clock_(RCL_ROS_TIME),
   tfbuffer_(std::make_shared<rclcpp::Clock>(clock_)),
   listener_(tfbuffer_),
   broadcaster_(this)
-/* ----------------------------------------------------------------------------- */  
+/* *************************************************************************************************** */
 {
+  RCLCPP_INFO(get_logger(), "Initialization init");
+
   setParams();
   initializePubSub();
+  setInitialPose();
 
+  this->threads
 
-  if (set_initial_pose_) {
-    auto msg = std::make_shared<geometry_msgs::msg::PoseStamped>();
-    msg->header.stamp = now();
-    msg->header.frame_id = global_frame_id_;
-    msg->pose.position.x = initial_pose_x_;
-    msg->pose.position.y = initial_pose_y_;
-    msg->pose.position.z = initial_pose_z_;
-    msg->pose.orientation.x = initial_pose_qx_;
-    msg->pose.orientation.y = initial_pose_qy_;
-    msg->pose.orientation.z = initial_pose_qz_;
-    msg->pose.orientation.w = initial_pose_qw_;
-    corrent_pose_stamped_ = *msg;
-    pose_pub_->publish(corrent_pose_stamped_);
-    initial_pose_received_ = true;
-
-    path_.poses.push_back(*msg);
-  }
-
-/*  STAMPE PARAMETRI UTILI 
-  std::cout << "registration_method:" << registration_method_ << std::endl;
-  std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
-  std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
-  std::cout << "gicp_corr_dist_threshold[m]:" << gicp_corr_dist_threshold << std::endl;
-  std::cout << "trans_for_mapupdate[m]:" << trans_for_mapupdate_ << std::endl;
-  std::cout << "vg_size_for_input[m]:" << vg_size_for_input_ << std::endl;
-  std::cout << "vg_size_for_map[m]:" << vg_size_for_map_ << std::endl;
-  std::cout << "use_min_max_filter:" << std::boolalpha << use_min_max_filter_ << std::endl;
-  std::cout << "scan_min_range[m]:" << scan_min_range_ << std::endl;
-  std::cout << "scan_max_range[m]:" << scan_max_range_ << std::endl;
-  std::cout << "set_initial_pose:" << std::boolalpha << set_initial_pose_ << std::endl;
-  std::cout << "use_odom:" << std::boolalpha << use_odom_ << std::endl;
-  std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
-  std::cout << "scan_period[sec]:" << scan_period_ << std::endl;
-  std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
-  std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
-  std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
-  std::cout << "------------------" << std::endl;
-*/
-  RCLCPP_INFO(get_logger(), "initialization end");
+  RCLCPP_INFO(get_logger(), "Initialization end");
 }
 
+/* ************************************  SET PARAMS  ************************************************* */
 void Odometry::setParams()
+/* *************************************************************************************************** */
 {
   this->declare_parameter("robot_name", "robot0");
   this->get_parameter("robot_name", robot_name_);
@@ -102,13 +70,13 @@ void Odometry::setParams()
     num_targeted_cloud_ = 1;
   }
 
-  this->declare_parameter("initial_pose_x", 0.0);
+  this->declare_parameter("initial_pose_x", 1.0);
   this->get_parameter("initial_pose_x", initial_pose_x_);
-  this->declare_parameter("initial_pose_y", 0.0);
+  this->declare_parameter("initial_pose_y", 1.0);
   this->get_parameter("initial_pose_y", initial_pose_y_);
-  this->declare_parameter("initial_pose_z", 0.0);
+  this->declare_parameter("initial_pose_z", 1.0);
   this->get_parameter("initial_pose_z", initial_pose_z_);
-  this->declare_parameter("initial_pose_qx", 0.0);
+  this->declare_parameter("initial_pose_qx", 1.0);
   this->get_parameter("initial_pose_qx", initial_pose_qx_);
   this->declare_parameter("initial_pose_qy", 0.0);
   this->get_parameter("initial_pose_qy", initial_pose_qy_);
@@ -117,7 +85,7 @@ void Odometry::setParams()
   this->declare_parameter("initial_pose_qw", 1.0);
   this->get_parameter("initial_pose_qw", initial_pose_qw_);
 
-  this->declare_parameter("set_initial_pose", false);
+  this->declare_parameter("set_initial_pose", true);
   this->get_parameter("set_initial_pose", set_initial_pose_);
   this->declare_parameter("use_odom", false);
   this->get_parameter("use_odom", use_odom_);
@@ -151,9 +119,11 @@ void Odometry::setParams()
   lidar_undistortion_.setScanPeriod(scan_period_);
 }
 
+/* ***********************  INITIALIZE PUBLISHER AND SUBSCRIBER ************************************** */
 void Odometry::initializePubSub()
+/* *************************************************************************************************** */
 {
-  RCLCPP_INFO(get_logger(), "initialize Publishers and Subscribers");
+  RCLCPP_INFO(get_logger(), "Initialize Publishers and Subscribers");
   std::string initial_pose=this->robot_name_ + "/initial_pose";
   std::string imu=this->robot_name_ + "/imu";
   std::string input_cloud=this->robot_name_ + "/input_cloud";
@@ -161,6 +131,9 @@ void Odometry::initializePubSub()
   std::string current_pose=this->robot_name_+ "/current_pose";
   std::string map=this->robot_name_ + "/map";
   std::string path=this->robot_name_ + "/path";
+
+  /* DEBUG */
+  current_pose="/curr_pos";
 
   // sub
   initial_pose_sub_ =
@@ -197,8 +170,34 @@ void Odometry::initializePubSub()
   RCLCPP_INFO(get_logger(), "Publishers and Subscribers configurated.");
 }
 
-void Odometry::laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+/* *******************************  SET INITIAL POSE  ************************************************ */
+void Odometry::setInitialPose()
+/* *************************************************************************************************** */
 {
+  if (set_initial_pose_) {
+    auto msg = std::make_shared<geometry_msgs::msg::PoseStamped>();
+    msg->header.stamp = now();
+    msg->header.frame_id = global_frame_id_;
+    msg->pose.position.x = initial_pose_x_;
+    msg->pose.position.y = initial_pose_y_;
+    msg->pose.position.z = initial_pose_z_;
+    msg->pose.orientation.x = initial_pose_qx_;
+    msg->pose.orientation.y = initial_pose_qy_;
+    msg->pose.orientation.z = initial_pose_qz_;
+    msg->pose.orientation.w = initial_pose_qw_;
+    corrent_pose_stamped_ = *msg;
+    pose_pub_->publish(corrent_pose_stamped_);
+    initial_pose_received_ = true;
+
+    path_.poses.push_back(*msg);
+  }
+}
+
+/* ******************************  LASER SCAN CALLBACK  ********************************************** */
+void Odometry::laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+/* *************************************************************************************************** */
+{
+
  /* TO-DO: Devo costruire struttura in cui gestire queste LaserScan, ovvero trovare un modo per renderle suitable in futuro */
  
 
@@ -209,8 +208,10 @@ void Odometry::laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr 
 
   this->projector_.projectLaser(*msg, *cloud_msg);  
   this->cloud_pub_->publish(std::move(cloud_msg));
+  
 }
 
+/* ******************************  LASER SCAN CALLBACK  ********************************************** */
 void Odometry::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
 {
   if (initial_pose_received_) {
@@ -218,7 +219,9 @@ void Odometry::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
   }
 }
 
+/* ***************************  INITIAL POSE CALLBACK  *********************************************** */
 void Odometry::initial_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
+/* *************************************************************************************************** */
 {
   if (msg->header.frame_id != global_frame_id_) {
       RCLCPP_WARN(get_logger(), "This initial_pose is not in the global frame");
@@ -235,9 +238,17 @@ void Odometry::initial_pose_callback(const geometry_msgs::msg::PoseStamped::Shar
     pose_pub_->publish(corrent_pose_stamped_);
 }
 
+/* ****************************  CLOUD CALLBACK  ***************************************************** */
 void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+/* *************************************************************************************************** */
 {
+
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Cloud callback init. ");
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: LETT");
+
   if (initial_pose_received_) {
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: A");
+
     sensor_msgs::msg::PointCloud2 transformed_msg;
     try {
       tf2::TimePoint time_point = tf2::TimePoint(
@@ -251,6 +262,8 @@ void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg
       return;
     }
 
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: B");
+
     pcl::PointCloud<pcl::PointXYZI>::Ptr tmp_ptr(new pcl::PointCloud<pcl::PointXYZI>());
     pcl::fromROSMsg(transformed_msg, *tmp_ptr);
 
@@ -259,6 +272,7 @@ void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg
         msg->header.stamp.nanosec * 1e-9;
       lidar_undistortion_.adjustDistortion(tmp_ptr, scan_time);
     }
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: C");
 
     if (use_min_max_filter_) {
       double r;
@@ -269,6 +283,7 @@ void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg
       }
       tmp_ptr = tmp_ptr2;
     }
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: D");
 
     if (!initial_cloud_received_) {
       RCLCPP_INFO(get_logger(), "create a first map");
@@ -308,19 +323,39 @@ void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg
 
     }
 
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: E");
+
+
     if (initial_cloud_received_) {
+      RCLCPP_INFO(this->get_logger(), "[DEBUG]: F");
+      
+      RCLCPP_INFO(this->get_logger(), "[DEBUG]: Entering receiveCloud ");
+
       receiveCloud(tmp_ptr, msg->header.stamp);
+
+      RCLCPP_INFO(this->get_logger(), "[DEBUG]: G");
     }
   }
+
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Cloud callback end. ");
+
 }
 
+/* *****************************  RECEIVE CLOUD  ***************************************************** */
 void Odometry::receiveCloud(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
   const rclcpp::Time stamp)
+/* *************************************************************************************************** */
 {
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: ReceiveCloud init ");
+
   if (mapping_flag_ && mapping_future_.valid()) {
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: A1 ");
+
     auto status = mapping_future_.wait_for(0s);
     if (status == std::future_status::ready) {
+        RCLCPP_INFO(this->get_logger(), "[DEBUG]: B1 ");
+
       if (is_map_updated_ == true) {
         pcl::PointCloud<pcl::PointXYZI>::Ptr targeted_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>(
             targeted_cloud_));
@@ -341,6 +376,7 @@ void Odometry::receiveCloud(
       mapping_thread_.detach();
     }
   }
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: C1 ");
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr filtered_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
   pcl::VoxelGrid<pcl::PointXYZI> voxel_grid;
@@ -352,6 +388,8 @@ void Odometry::receiveCloud(
   Eigen::Matrix4f sim_trans = getTransformation(corrent_pose_stamped_.pose);
 
   if (use_odom_) {
+    RCLCPP_INFO(this->get_logger(), "[DEBUG]: C1 ");
+
     geometry_msgs::msg::TransformStamped odom_trans;
     try {
       odom_trans = tfbuffer_.lookupTransform(
@@ -367,6 +405,8 @@ void Odometry::receiveCloud(
     }
     previous_odom_mat_ = odom_mat;
   }
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: D1 ");
+
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud(new pcl::PointCloud<pcl::PointXYZI>);
   rclcpp::Clock system_clock;
@@ -376,20 +416,21 @@ void Odometry::receiveCloud(
 
   Eigen::Matrix4f final_transformation = registration_->getFinalTransformation();
 
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Entering publish Map and Pose ");
+
   publishMapAndPose(cloud_ptr, final_transformation, stamp);
 
-  if (!debug_flag_) {return;}
-
-  tf2::Quaternion quat_tf;
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Stamp results.... ");
+  {
+    tf2::Quaternion quat_tf;
   double roll, pitch, yaw;
   tf2::fromMsg(corrent_pose_stamped_.pose.orientation, quat_tf);
   tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-
   std::cout << "---------------------------------------------------------" << std::endl;
+
   std::cout << "nanoseconds: " << stamp.nanoseconds() << std::endl;
   std::cout << "trans: " << trans_ << std::endl;
-  std::cout << "align time:" << time_align_end.seconds() - time_align_start.seconds() << "s" <<
-    std::endl;
+  std::cout << "align time:" << time_align_end.seconds() - time_align_start.seconds() << "s" << std::endl;
   std::cout << "number of filtered cloud points: " << filtered_cloud_ptr->size() << std::endl;
   std::cout << "initial transformation:" << std::endl;
   std::cout << sim_trans << std::endl;
@@ -405,12 +446,49 @@ void Odometry::receiveCloud(
   std::cout << "num_submaps:" << num_submaps << std::endl;
   std::cout << "moving distance:" << latest_distance_ << std::endl;
   std::cout << "---------------------------------------------------------" << std::endl;
+  }
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: End stamp. ");
+
+
+  if (!debug_flag_) {return;}
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: E1 ");
+
+  tf2::Quaternion quat_tf;
+  double roll, pitch, yaw;
+  tf2::fromMsg(corrent_pose_stamped_.pose.orientation, quat_tf);
+  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
+/* 
+  std::cout << "nanoseconds: " << stamp.nanoseconds() << std::endl;
+  std::cout << "trans: " << trans_ << std::endl;
+  std::cout << "align time:" << time_align_end.seconds() - time_align_start.seconds() << "s" << std::endl;
+  std::cout << "number of filtered cloud points: " << filtered_cloud_ptr->size() << std::endl;
+  std::cout << "initial transformation:" << std::endl;
+  std::cout << sim_trans << std::endl;
+  std::cout << "has converged: " << registration_->hasConverged() << std::endl;
+  std::cout << "fitness score: " << registration_->getFitnessScore() << std::endl;
+  std::cout << "final transformation:" << std::endl;
+  std::cout << final_transformation << std::endl;
+  std::cout << "rpy" << std::endl;
+  std::cout << "roll:" << roll * 180 / M_PI << "," <<
+    "pitch:" << pitch * 180 / M_PI << "," <<
+    "yaw:" << yaw * 180 / M_PI << std::endl;
+  int num_submaps = map_array_msg_.submaps.size();
+  std::cout << "num_submaps:" << num_submaps << std::endl;
+  std::cout << "moving distance:" << latest_distance_ << std::endl;
+  std::cout << "---------------------------------------------------------" << std::endl; */
+
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: ReceiveCloud end ");
+
 }
 
+/* **************************  PUBLISH MAP AND POSE ************************************************** */
 void Odometry::publishMapAndPose(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr & cloud_ptr,
   const Eigen::Matrix4f final_transformation, const rclcpp::Time stamp)
+/* *************************************************************************************************** */
 {
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Publish map and pose init ");
+
   Eigen::Vector3d position = final_transformation.block<3, 1>(0, 3).cast<double>();
 
   Eigen::Matrix3d rot_mat = final_transformation.block<3, 3>(0, 0).cast<double>();
@@ -451,8 +529,53 @@ void Odometry::publishMapAndPose(
     mapping_thread_ = std::thread(std::move(std::ref(mapping_task_)));
     mapping_flag_ = true;
   }
+
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Publish map and pose end ");
+
 }
 
+/* ****************************  GET TRASFORMATION  ************************************************** */
+Eigen::Matrix4f Odometry::getTransformation(const geometry_msgs::msg::Pose pose)
+/* *************************************************************************************************** */
+{
+  Eigen::Affine3d affine;
+  tf2::fromMsg(pose, affine);
+  Eigen::Matrix4f sim_trans = affine.matrix().cast<float>();
+  return sim_trans;
+}
+
+/* *****************************  RECEIVE IMU  ******************************************************* */
+void Odometry::receiveImu(const sensor_msgs::msg::Imu msg)
+/* *************************************************************************************************** */
+{
+  if (!use_imu_) {return;}
+
+  double roll, pitch, yaw;
+  tf2::Quaternion orientation;
+  tf2::fromMsg(msg.orientation, orientation);
+  tf2::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
+  float acc_x = static_cast<float>(msg.linear_acceleration.x) + sin(pitch) * 9.81;
+  float acc_y = static_cast<float>(msg.linear_acceleration.y) - cos(pitch) * sin(roll) * 9.81;
+  float acc_z = static_cast<float>(msg.linear_acceleration.z) - cos(pitch) * cos(roll) * 9.81;
+
+  Eigen::Vector3f angular_velo{
+    static_cast<float>(msg.angular_velocity.x),
+    static_cast<float>(msg.angular_velocity.y),
+    static_cast<float>(msg.angular_velocity.z)};
+  Eigen::Vector3f acc{acc_x, acc_y, acc_z};
+  Eigen::Quaternionf quat{
+    static_cast<float>(msg.orientation.w),
+    static_cast<float>(msg.orientation.x),
+    static_cast<float>(msg.orientation.y),
+    static_cast<float>(msg.orientation.z)};
+  double imu_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9;
+
+  lidar_undistortion_.getImu(angular_velo, acc, quat, imu_time);
+
+}
+
+
+/* *************************************************************************************************** */
 void Odometry::updateMap(
   const pcl::PointCloud<pcl::PointXYZI>::ConstPtr cloud_ptr,
   const Eigen::Matrix4f final_transformation,
@@ -508,41 +631,6 @@ void Odometry::updateMap(
   }
 }
 
-Eigen::Matrix4f Odometry::getTransformation(const geometry_msgs::msg::Pose pose)
-{
-  Eigen::Affine3d affine;
-  tf2::fromMsg(pose, affine);
-  Eigen::Matrix4f sim_trans = affine.matrix().cast<float>();
-  return sim_trans;
-}
-
-void Odometry::receiveImu(const sensor_msgs::msg::Imu msg)
-{
-  if (!use_imu_) {return;}
-
-  double roll, pitch, yaw;
-  tf2::Quaternion orientation;
-  tf2::fromMsg(msg.orientation, orientation);
-  tf2::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-  float acc_x = static_cast<float>(msg.linear_acceleration.x) + sin(pitch) * 9.81;
-  float acc_y = static_cast<float>(msg.linear_acceleration.y) - cos(pitch) * sin(roll) * 9.81;
-  float acc_z = static_cast<float>(msg.linear_acceleration.z) - cos(pitch) * cos(roll) * 9.81;
-
-  Eigen::Vector3f angular_velo{
-    static_cast<float>(msg.angular_velocity.x),
-    static_cast<float>(msg.angular_velocity.y),
-    static_cast<float>(msg.angular_velocity.z)};
-  Eigen::Vector3f acc{acc_x, acc_y, acc_z};
-  Eigen::Quaternionf quat{
-    static_cast<float>(msg.orientation.w),
-    static_cast<float>(msg.orientation.x),
-    static_cast<float>(msg.orientation.y),
-    static_cast<float>(msg.orientation.z)};
-  double imu_time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9;
-
-  lidar_undistortion_.getImu(angular_velo, acc, quat, imu_time);
-
-}
 
 void Odometry::publishMap()
 {
@@ -575,3 +663,25 @@ void Odometry::publishMap()
 
 #include <rclcpp_components/register_node_macro.hpp>
 RCLCPP_COMPONENTS_REGISTER_NODE(ldslam::Odometry)
+
+
+/*  STAMPE PARAMETRI UTILI 
+  std::cout << "registration_method:" << registration_method_ << std::endl;
+  std::cout << "ndt_resolution[m]:" << ndt_resolution << std::endl;
+  std::cout << "ndt_num_threads:" << ndt_num_threads << std::endl;
+  std::cout << "gicp_corr_dist_threshold[m]:" << gicp_corr_dist_threshold << std::endl;
+  std::cout << "trans_for_mapupdate[m]:" << trans_for_mapupdate_ << std::endl;
+  std::cout << "vg_size_for_input[m]:" << vg_size_for_input_ << std::endl;
+  std::cout << "vg_size_for_map[m]:" << vg_size_for_map_ << std::endl;
+  std::cout << "use_min_max_filter:" << std::boolalpha << use_min_max_filter_ << std::endl;
+  std::cout << "scan_min_range[m]:" << scan_min_range_ << std::endl;
+  std::cout << "scan_max_range[m]:" << scan_max_range_ << std::endl;
+  std::cout << "set_initial_pose:" << std::boolalpha << set_initial_pose_ << std::endl;
+  std::cout << "use_odom:" << std::boolalpha << use_odom_ << std::endl;
+  std::cout << "use_imu:" << std::boolalpha << use_imu_ << std::endl;
+  std::cout << "scan_period[sec]:" << scan_period_ << std::endl;
+  std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
+  std::cout << "map_publish_period[sec]:" << map_publish_period_ << std::endl;
+  std::cout << "num_targeted_cloud:" << num_targeted_cloud_ << std::endl;
+  std::cout << "------------------" << std::endl;
+*/

@@ -17,6 +17,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -132,6 +133,15 @@ install(TARGETS
 
 install(TARGETS 
   odometry_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install Python modules
+ament_python_install_package(test/)
+
+# Install Python executables
+install(PROGRAMS
+  test/test_odometry.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

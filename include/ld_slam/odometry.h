@@ -61,6 +61,8 @@ namespace ldslam
 
       pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration_;
 
+      std::thread threads_;
+
       std::mutex mtx_;
       pcl::PointCloud < pcl::PointXYZI > targeted_cloud_;
       rclcpp::Time last_map_time_;
@@ -90,6 +92,8 @@ namespace ldslam
 
       void setParams();
       void initializePubSub();
+      void setInitialPose();
+
       
       void receiveCloud(
         const pcl::PointCloud < pcl::PointXYZI > ::ConstPtr & input_cloud_ptr,
