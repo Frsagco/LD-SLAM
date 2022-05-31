@@ -44,12 +44,14 @@ def generate_launch_description():
     with open(urdf, 'r') as infp:
         urdf_model = infp.read()
 
+        
     # Names and poses of the robot
     robots = gen_robot_list(1)
 
     # We create the list of spawn robots commands
     spawn_robots_cmds = []
     state_publisher_commands = []
+    lidar_driver_commands = []
     for robot in robots:
         spawn_robots_cmds.append(
             IncludeLaunchDescription(
@@ -77,7 +79,8 @@ def generate_launch_description():
                 output='screen',
                 parameters=[{'use_sim_time': use_sim_time,
                             'robot_description': urdf_model}],
-                ),]))
+                ),
+        ]))
         #odometry_node_cmds.append(
         #    Node(
         #    package='ld_slam',

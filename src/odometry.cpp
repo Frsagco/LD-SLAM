@@ -21,10 +21,21 @@ Odometry::Odometry(const rclcpp::NodeOptions & options)
   initializePubSub();
   setInitialPose();
 
-  this->threads
+  /* his->threads_.push_back(std::make_unique<boost::thread>(
+      boost::bind(&Odometry::publishOdometry,
+      this, scan_period_))); */
 
   RCLCPP_INFO(get_logger(), "Initialization end");
 }
+
+void Odometry::publishOdometry(const double scan_period_)
+{
+  return;
+
+
+
+}
+
 
 /* ************************************  SET PARAMS  ************************************************* */
 void Odometry::setParams()
@@ -124,17 +135,20 @@ void Odometry::initializePubSub()
 /* *************************************************************************************************** */
 {
   RCLCPP_INFO(get_logger(), "Initialize Publishers and Subscribers");
-  std::string initial_pose=this->robot_name_ + "/initial_pose";
-  std::string imu=this->robot_name_ + "/imu";
-  std::string input_cloud=this->robot_name_ + "/input_cloud";
-  std::string scan=this->robot_name_ + "/scan";
-  std::string current_pose=this->robot_name_+ "/current_pose";
-  std::string map=this->robot_name_ + "/map";
-  std::string path=this->robot_name_ + "/path";
+  std::string initial_pose = "/" + this->robot_name_ + "/initial_pose";
+  std::string imu = "/" + this->robot_name_ + "/imu";
+  std::string input_cloud = "/" + this->robot_name_ + "/input_cloud";
+  std::string scan = "/" + this->robot_name_ + "/scan";
+  std::string current_pose = "/" + this->robot_name_+ "/current_pose";
+  std::string map = "/" + this->robot_name_ + "/map";
+  std::string path = "/" + this->robot_name_ + "/path";
 
   /* DEBUG */
   current_pose="/curr_pos";
 
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Scan topic: " + scan);
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Input_cloud topic: " + input_cloud);
+  
   // sub
   initial_pose_sub_ =
     this->create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -149,6 +163,7 @@ void Odometry::initializePubSub()
     this->create_subscription<sensor_msgs::msg::LaserScan>(
       scan, rclcpp::SensorDataQoS(), std::bind(&Odometry::laser_scan_callback, this, std::placeholders::_1)
     );
+  
 
   // pub
   cloud_pub_= this->create_publisher<sensor_msgs::msg::PointCloud2>(
@@ -204,6 +219,7 @@ void Odometry::laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr 
  /* Preparing laser scans for scan-to-scan matching in order to obtain odometry 
     Scan-to-scan matching is implemented manipulating PointCloud2. Here is done a conversion using laser_geometry pkg       */
 
+  RCLCPP_INFO(this->get_logger(), "[DEBUG]: Laser_scan callback");
   auto cloud_msg = std::make_unique<sensor_msgs::msg::PointCloud2>();
 
   this->projector_.projectLaser(*msg, *cloud_msg);  

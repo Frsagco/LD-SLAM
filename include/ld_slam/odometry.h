@@ -122,6 +122,8 @@ namespace ldslam
       void imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg);
       void laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
 
+      void publishOdometry(const double scan_period_);
+
       bool initial_pose_received_ {false};
       bool initial_cloud_received_ {false};
 
