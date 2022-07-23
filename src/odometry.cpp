@@ -21,7 +21,7 @@ Odometry::Odometry(const rclcpp::NodeOptions & options)
   initializePubSub();
   setInitialPose();
 
-  /* his->threads_.push_back(std::make_unique<boost::thread>(
+  /* this->threads_.push_back(std::make_unique<boost::thread>(
       boost::bind(&Odometry::publishOdometry,
       this, scan_period_))); */
 
@@ -51,7 +51,7 @@ void Odometry::setParams()
   this->get_parameter("odom_frame_id", odom_frame_id_);
   this->declare_parameter("registration_method", "NDT");
   this->get_parameter("registration_method", registration_method_);
-  this->declare_parameter("ndt_resolution", 5.0);
+  this->declare_parameter("ndt_resolution", 2.0);
   this->get_parameter("ndt_resolution", ndt_resolution);
   this->declare_parameter("ndt_num_threads", 0);
   this->get_parameter("ndt_num_threads", ndt_num_threads);
@@ -59,9 +59,9 @@ void Odometry::setParams()
   this->get_parameter("gicp_corr_dist_threshold", gicp_corr_dist_threshold);
   this->declare_parameter("trans_for_mapupdate", 1.5);
   this->get_parameter("trans_for_mapupdate", trans_for_mapupdate_);
-  this->declare_parameter("vg_size_for_input", 0.2);
+  this->declare_parameter("vg_size_for_input", 1.5);
   this->get_parameter("vg_size_for_input", vg_size_for_input_);
-  this->declare_parameter("vg_size_for_map", 0.1);
+  this->declare_parameter("vg_size_for_map", 0.075);
   this->get_parameter("vg_size_for_map", vg_size_for_map_);
   this->declare_parameter("use_min_max_filter", false);
   this->get_parameter("use_min_max_filter", use_min_max_filter_);
@@ -145,6 +145,9 @@ void Odometry::initializePubSub()
 
   /* DEBUG */
   current_pose="/curr_pos";
+  scan="/robot1/scan";
+  input_cloud="/robot1/input_cloud";
+  input_cloud="/filtered_points";
 
   RCLCPP_INFO(this->get_logger(), "[DEBUG]: Scan topic: " + scan);
   RCLCPP_INFO(this->get_logger(), "[DEBUG]: Input_cloud topic: " + input_cloud);
@@ -158,13 +161,12 @@ void Odometry::initializePubSub()
     imu, rclcpp::SensorDataQoS(), std::bind(&Odometry::imu_callback, this, std::placeholders::_1));
   input_cloud_sub_ =
     this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    input_cloud, rclcpp::SensorDataQoS(), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
+    input_cloud, rclcpp::QoS(100), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
   input_laser_scan_sub_=
     this->create_subscription<sensor_msgs::msg::LaserScan>(
       scan, rclcpp::SensorDataQoS(), std::bind(&Odometry::laser_scan_callback, this, std::placeholders::_1)
     );
   
-
   // pub
   cloud_pub_= this->create_publisher<sensor_msgs::msg::PointCloud2>(
     input_cloud,     
@@ -172,14 +174,15 @@ void Odometry::initializePubSub()
   );
   pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
     current_pose,
-    rclcpp::QoS(10));
+    rclcpp::QoS(100));
   map_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(map, rclcpp::QoS(10));
 
-/*   map_array_pub_ =
-    this->create_publisher<ld_slam_msg::msg::MapArray>(
+  
+  map_array_pub_ =
+  this->create_publisher<ld_slam_msg::msg::MapArray>(
     "map_array", rclcpp::QoS(
       rclcpp::KeepLast(
-        1)).reliable()); */
+        1)).reliable()); 
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>(path, rclcpp::QoS(10));
 
   RCLCPP_INFO(get_logger(), "Publishers and Subscribers configurated.");
@@ -226,6 +229,7 @@ void Odometry::laser_scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr 
   this->cloud_pub_->publish(std::move(cloud_msg));
   
 }
+
 
 /* ******************************  LASER SCAN CALLBACK  ********************************************** */
 void Odometry::imu_callback(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -312,8 +316,7 @@ void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg
       initial_cloud_received_ = true;
 
       Eigen::Matrix4f sim_trans = getTransformation(corrent_pose_stamped_.pose);
-      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(
-        new pcl::PointCloud<pcl::PointXYZI>());
+      pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>());
       pcl::transformPointCloud(*cloud_ptr, *transformed_cloud_ptr, sim_trans);
       registration_->setInputTarget(transformed_cloud_ptr);
 
@@ -356,6 +359,8 @@ void Odometry::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg
   RCLCPP_INFO(this->get_logger(), "[DEBUG]: Cloud callback end. ");
 
 }
+
+
 
 /* *****************************  RECEIVE CLOUD  ***************************************************** */
 void Odometry::receiveCloud(
@@ -408,9 +413,7 @@ void Odometry::receiveCloud(
 
     geometry_msgs::msg::TransformStamped odom_trans;
     try {
-      odom_trans = tfbuffer_.lookupTransform(
-        odom_frame_id_, robot_frame_id_, tf2_ros::fromMsg(
-          stamp));
+      odom_trans = tfbuffer_.lookupTransform(odom_frame_id_, robot_frame_id_, tf2_ros::fromMsg(stamp));
     } catch (tf2::TransformException & e) {
       RCLCPP_ERROR(this->get_logger(), "%s", e.what());
     }
@@ -496,6 +499,8 @@ void Odometry::receiveCloud(
   RCLCPP_INFO(this->get_logger(), "[DEBUG]: ReceiveCloud end ");
 
 }
+
+
 
 /* **************************  PUBLISH MAP AND POSE ************************************************** */
 void Odometry::publishMapAndPose(

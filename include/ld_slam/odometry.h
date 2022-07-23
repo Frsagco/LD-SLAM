@@ -20,7 +20,7 @@
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/path.hpp>
 
-#include <ld_slam_msg/msg/map_array.hpp>
+#include "ld_slam_msg/msg/map_array.hpp"
 #include "lidar_undistortion.hpp"
 
 #include <pclomp/ndt_omp.h>
@@ -86,7 +86,7 @@ namespace ldslam
       rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub_;
       rclcpp::Publisher<ld_slam_msg::msg::MapArray>::SharedPtr map_array_pub_;
       rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
-
+  
 
       laser_geometry::LaserProjection projector_;
 

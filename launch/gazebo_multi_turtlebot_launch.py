@@ -11,10 +11,17 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess, GroupAction,
+                            IncludeLaunchDescription, LogInfo)
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, TextSubstitution
+
 
 def generate_launch_description():
 
     pkg_cslam = get_package_share_directory('ld_slam')
+    nav2_bringup = get_package_share_directory('nav2_bringup')
 
     # Start World
     start_world = IncludeLaunchDescription(
@@ -25,7 +32,7 @@ def generate_launch_description():
 
     spawn_robot_world = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(pkg_cslam, 'launch', 'multi_spawn_turtlebot_launch.py'),
+            os.path.join(pkg_cslam, 'launch', 'multi_robot_prova_launch.py'),
         )
     )     
 
@@ -33,3 +40,5 @@ def generate_launch_description():
         start_world,
         spawn_robot_world
     ])
+
+    

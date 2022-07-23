@@ -65,7 +65,6 @@ src/odometry.cpp
 )
 
 target_compile_definitions(odometry PRIVATE "COMPOSITION_DLL")
-
 ament_target_dependencies(odometry
   rclcpp 
   rclcpp_components 
@@ -84,12 +83,10 @@ ament_target_dependencies(odometry
 add_executable(odometry_node
 src/odometry_node.cpp
 )
-
 target_link_libraries(odometry_node
 odometry ${PCL_LIBRARIES})
-
 ament_target_dependencies(odometry_node
-  rclcpp)
+  rclcpp ld_slam_msg)
 
 include_directories(
     include
