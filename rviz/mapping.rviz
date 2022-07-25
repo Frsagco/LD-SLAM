@@ -114,7 +114,7 @@ Visualization Manager:
       Shaft Length: 1
       Shaft Radius: 0.05000000074505806
       Shape: Arrow
-      Topic: /current_pose
+      Topic: /curr_pos
       Unreliable: false
       Value: true
     - Alpha: 1

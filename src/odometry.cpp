@@ -147,7 +147,7 @@ void Odometry::initializePubSub()
   current_pose="/curr_pos";
   scan="/robot1/scan";
   input_cloud="/robot1/input_cloud";
-  input_cloud="/filtered_points";
+  input_cloud="/input_cloud";
 
   RCLCPP_INFO(this->get_logger(), "[DEBUG]: Scan topic: " + scan);
   RCLCPP_INFO(this->get_logger(), "[DEBUG]: Input_cloud topic: " + input_cloud);
@@ -161,7 +161,7 @@ void Odometry::initializePubSub()
     imu, rclcpp::SensorDataQoS(), std::bind(&Odometry::imu_callback, this, std::placeholders::_1));
   input_cloud_sub_ =
     this->create_subscription<sensor_msgs::msg::PointCloud2>(
-    input_cloud, rclcpp::QoS(100), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
+    input_cloud, rclcpp::QoS(50), std::bind(&Odometry::cloud_callback, this, std::placeholders::_1));
   input_laser_scan_sub_=
     this->create_subscription<sensor_msgs::msg::LaserScan>(
       scan, rclcpp::SensorDataQoS(), std::bind(&Odometry::laser_scan_callback, this, std::placeholders::_1)
